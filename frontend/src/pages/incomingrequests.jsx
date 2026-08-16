@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
 import Navbar from "../components/Navbar";
+import { showToast } from "../components/Toast";
 
 export default function Incomingrequests() {
   const navigate = useNavigate();
@@ -9,65 +10,44 @@ export default function Incomingrequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [acting, setActing] = useState(null); // buddyRequestId being accepted/rejected
+  const [acting, setActing] = useState(null);
+
+  useEffect(() => { document.title = "RideBuddy — Incoming Requests"; }, []);
 
   const fetchIncoming = async () => {
     try {
       setLoading(true);
       setError(null);
-
       const token = await auth.currentUser.getIdToken();
-
-      const response = await fetch("http://localhost:5000/api/buddy/incoming", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/buddy/incoming`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message);
-        return;
-      }
-
+      if (!response.ok) { setError(data.message); return; }
       setRequests(data);
     } catch (err) {
       setError("Failed to load requests");
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchIncoming();
-  }, []);
+  useEffect(() => { fetchIncoming(); }, []);
 
   const handleAction = async (buddyRequestId, action) => {
     try {
       setActing(buddyRequestId);
-
       const token = await auth.currentUser.getIdToken();
-
-      const response = await fetch(
-        `http://localhost:5000/api/buddy/${action}/${buddyRequestId}`,
-        {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/buddy/${action}/${buddyRequestId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.message);
-        return;
-      }
-
-      alert(data.message);
+      if (!response.ok) { showToast(data.message, "error"); return; }
+      showToast(action === "accept" ? "You're matched! 🎉" : "Request rejected");
       fetchIncoming();
     } catch (err) {
-      console.error(err);
-      alert("Something went wrong");
+      showToast("Something went wrong", "error");
     } finally {
       setActing(null);
     }
@@ -77,83 +57,84 @@ export default function Incomingrequests() {
     <>
       <Navbar />
 
-      <div style={{ padding: "20px" }}>
-        <button onClick={() => navigate("/dashboard")} style={{ marginBottom: "16px" }}>
-          ← Back
+      <div className="page fade-up">
+        <button
+          className="btn-ghost"
+          onClick={() => navigate("/dashboard")}
+          style={{ marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
+        >
+          ← Back to Dashboard
         </button>
 
-        <h1>Incoming Requests</h1>
+        <h1 style={{ marginBottom: "0.4rem" }}>Incoming Requests</h1>
+        <p style={{ color: "var(--gray)", fontSize: "0.88rem", marginBottom: "1.5rem" }}>
+          People who want to ride with you.
+        </p>
 
-        {loading && <p>Loading...</p>}
-        {error && <p style={{ color: "red" }}>{error}</p>}
+        {loading && <p style={{ color: "var(--gray)" }}>Loading...</p>}
+        {error && <p style={{ color: "var(--red)" }}>{error}</p>}
 
         {!loading && !error && requests.length === 0 && (
-          <p>No pending buddy requests.</p>
+          <div className="empty-state">No pending requests right now.</div>
         )}
 
-        {requests.map((req) => (
-          <div
-            key={req._id}
-            style={{
-              border: "1px solid gray",
-              margin: "10px 0",
-              padding: "14px",
-              borderRadius: "6px",
-            }}
-          >
-            <p><strong>From:</strong> {req.fromRideId?.name}</p>
-            <p><strong>Email:</strong> {req.fromRideId?.email}</p>
-            <p><strong>Route:</strong> {req.fromRideId?.from} → {req.fromRideId?.to}</p>
-            <p>
-              <strong>Their Time:</strong>{" "}
-              {new Date(req.fromRideId?.departureTime).toLocaleDateString()}{" "}
-              {new Date(req.fromRideId?.departureTime).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-            <p>
-              <strong>Your Time:</strong>{" "}
-              {new Date(req.toRideId?.departureTime).toLocaleDateString()}{" "}
-              {new Date(req.toRideId?.departureTime).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+          {requests.map((req) => (
+            <div key={req._id} className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.6rem" }}>
+                <div>
+                  <p style={{ fontWeight: 600 }}>{req.fromRideId?.name}</p>
+                  <p style={{ color: "var(--gray)", fontSize: "0.85rem" }}>{req.fromRideId?.email}</p>
+                </div>
+                <span className="tag tag-pending">Pending</span>
+              </div>
 
-            <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
-              <button
-                onClick={() => handleAction(req._id, "accept")}
-                disabled={acting === req._id}
-                style={{
-                  padding: "6px 14px",
-                  background: "green",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: acting === req._id ? "not-allowed" : "pointer",
-                }}
-              >
-                {acting === req._id ? "..." : "Accept"}
-              </button>
+              <p style={{ fontSize: "0.9rem", color: "var(--gray)", marginBottom: "0.3rem" }}>
+                {req.fromRideId?.from} → {req.fromRideId?.to}
+              </p>
 
-              <button
-                onClick={() => handleAction(req._id, "reject")}
-                disabled={acting === req._id}
-                style={{
-                  padding: "6px 14px",
-                  background: "red",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: acting === req._id ? "not-allowed" : "pointer",
-                }}
-              >
-                {acting === req._id ? "..." : "Reject"}
-              </button>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", margin: "0.75rem 0", fontSize: "0.85rem" }}>
+                <div style={{ background: "var(--bg)", borderRadius: "8px", padding: "0.6rem 0.8rem" }}>
+                  <p style={{ color: "var(--gray)", fontSize: "0.75rem", marginBottom: "0.2rem" }}>THEIR TIME</p>
+                  <p style={{ fontWeight: 500 }}>
+                    {new Date(req.fromRideId?.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                  <p style={{ color: "var(--gray)", fontSize: "0.78rem" }}>
+                    {new Date(req.fromRideId?.departureTime).toLocaleDateString()}
+                  </p>
+                </div>
+                <div style={{ background: "var(--bg)", borderRadius: "8px", padding: "0.6rem 0.8rem" }}>
+                  <p style={{ color: "var(--gray)", fontSize: "0.75rem", marginBottom: "0.2rem" }}>YOUR TIME</p>
+                  <p style={{ fontWeight: 500 }}>
+                    {new Date(req.toRideId?.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                  <p style={{ color: "var(--gray)", fontSize: "0.78rem" }}>
+                    {new Date(req.toRideId?.departureTime).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "0.65rem" }}>
+                <button
+                  className="btn-primary"
+                  onClick={() => handleAction(req._id, "accept")}
+                  disabled={acting === req._id}
+                  style={{ flex: 1, fontSize: "0.88rem" }}
+                >
+                  {acting === req._id ? "..." : "Accept"}
+                </button>
+                <button
+                  className="btn-danger"
+                  onClick={() => handleAction(req._id, "reject")}
+                  disabled={acting === req._id}
+                  style={{ flex: 1, fontSize: "0.88rem" }}
+                >
+                  {acting === req._id ? "..." : "Reject"}
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </>
   );

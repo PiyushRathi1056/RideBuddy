@@ -5,7 +5,7 @@ const verifyFirebaseToken = require("../middleware/auth");
 
 const router = express.Router();
 
-const TWO_HOURS = 2 * 60 * 60 * 1000; // ms
+const ONE_HOUR = 1 * 60 * 60 * 1000; // ms
 
 // 🔍 GET MATCHES FOR A RIDE
 // Returns other users' active rides with same from/to within ±2hr window
@@ -33,8 +33,8 @@ router.get("/matches/:rideId", verifyFirebaseToken, async (req, res) => {
       status: "active",
       isDeleted: false,
       departureTime: {
-        $gte: new Date(rideTime - TWO_HOURS),
-        $lte: new Date(rideTime + TWO_HOURS),
+        $gte: new Date(rideTime - ONE_HOUR),
+        $lte: new Date(rideTime + ONE_HOUR),
       },
     });
 
@@ -218,6 +218,54 @@ router.patch("/reject/:id", verifyFirebaseToken, async (req, res) => {
     await buddyReq.save();
 
     res.json({ message: "Buddy request rejected" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 💔 UNMATCH — removes buddy connection, keeps both rides active
+router.patch("/unmatch/:rideId", verifyFirebaseToken, async (req, res) => {
+  try {
+    const ride = await RideRequest.findById(req.params.rideId);
+
+    if (!ride || ride.isDeleted) {
+      return res.status(404).json({ message: "Ride not found" });
+    }
+
+    if (ride.userId !== req.user.uid) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (ride.status !== "matched") {
+      return res.status(400).json({ message: "Ride is not matched" });
+    }
+
+    const buddyRideId = ride.matchedWith;
+
+    // Reset both rides back to active
+    await RideRequest.findByIdAndUpdate(buddyRideId, {
+      status: "active",
+      matchedWith: null,
+    });
+
+    ride.status = "active";
+    ride.matchedWith = null;
+    await ride.save();
+
+    // Mark the buddy request as rejected so it doesn't linger
+    await BuddyRequest.findOneAndUpdate(
+      {
+        $or: [
+          { fromRideId: ride._id, toRideId: buddyRideId },
+          { fromRideId: buddyRideId, toRideId: ride._id },
+        ],
+        status: "accepted",
+      },
+      { status: "rejected" },
+    );
+
+    res.json({ message: "Buddy removed. Your ride is active again." });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

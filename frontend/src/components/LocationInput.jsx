@@ -123,9 +123,9 @@ export default function LocationInput({ id, name, value, onChange, placeholder }
                 top: "100%",
                 left: 0,
                 right: 0,
-                background: "#1e1e1e",
-                border: "1px solid #444",
-                borderRadius: "4px",
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
                 margin: 0,
                 padding: 0,
                 listStyle: "none",
@@ -141,9 +141,10 @@ export default function LocationInput({ id, name, value, onChange, placeholder }
                   style={{
                     padding: "10px 12px",
                     cursor: "pointer",
-                    borderBottom: "1px solid #333",
+                    borderBottom: "1px solid var(--border)",
+                    fontSize: "0.9rem",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#2a2a2a")}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-input)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
                   {loc}
@@ -156,10 +157,11 @@ export default function LocationInput({ id, name, value, onChange, placeholder }
                 style={{
                   padding: "10px 12px",
                   cursor: "pointer",
-                  color: "#aaa",
+                  color: "var(--gray)",
                   fontStyle: "italic",
+                  fontSize: "0.88rem",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#2a2a2a")}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-input)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 Other (type custom location)
