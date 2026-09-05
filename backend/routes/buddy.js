@@ -101,7 +101,17 @@ router.post("/request", verifyFirebaseToken, async (req, res) => {
         .json({ message: "Cannot send request to yourself" });
     }
 
-    // Check for duplicate
+    // Block if either ride is already matched or not active
+    if (fromRide.status !== "active") {
+      return res.status(400).json({ message: "Your ride is no longer active" });
+    }
+    if (toRide.status !== "active") {
+      return res
+        .status(400)
+        .json({ message: "That ride is no longer available" });
+    }
+
+    // Check for duplicate (any status — don't allow re-requesting after rejection either)
     const existing = await BuddyRequest.findOne({ fromRideId, toRideId });
     if (existing) {
       return res.status(400).json({ message: "Buddy request already sent" });
@@ -130,7 +140,7 @@ router.get("/incoming", verifyFirebaseToken, async (req, res) => {
       toUserId: req.user.uid,
       status: "pending",
     })
-      .populate("fromRideId", "from to departureTime name email")
+      .populate("fromRideId", "from to departureTime name")
       .populate("toRideId", "from to departureTime")
       .sort({ createdAt: -1 });
 
@@ -174,20 +184,82 @@ router.patch("/accept/:id", verifyFirebaseToken, async (req, res) => {
       return res.status(400).json({ message: "Request already handled" });
     }
 
-    // Accept the buddy request
+    // Guard: make sure neither ride has been deleted
+    const [fromRide, toRide] = await Promise.all([
+      RideRequest.findById(buddyReq.fromRideId),
+      RideRequest.findById(buddyReq.toRideId),
+    ]);
+
+    if (!fromRide || fromRide.isDeleted) {
+      // Requester's ride is gone — clean up this request
+      buddyReq.status = "rejected";
+      await buddyReq.save();
+      return res
+        .status(400)
+        .json({ message: "The requester's ride no longer exists" });
+    }
+
+    if (!toRide || toRide.isDeleted) {
+      buddyReq.status = "rejected";
+      await buddyReq.save();
+      return res.status(400).json({ message: "Your ride no longer exists" });
+    }
+
+    // Atomic lock on the requester's ride: only succeeds if it's still active.
+    // This is the concurrency guard — if two accepts race, only one wins here.
+    const lockedFromRide = await RideRequest.findOneAndUpdate(
+      { _id: buddyReq.fromRideId, status: "active", isDeleted: false },
+      { $set: { status: "matched", matchedWith: buddyReq.toRideId } },
+      { new: true },
+    );
+
+    if (!lockedFromRide) {
+      // Another accept already won the race, or the ride was matched/deleted
+      buddyReq.status = "rejected";
+      await buddyReq.save();
+      return res.status(409).json({
+        message: "That person has already been matched with someone else",
+      });
+    }
+
+    // Atomic lock on the recipient's ride too — they might have accepted
+    // a different request in a parallel call
+    const lockedToRide = await RideRequest.findOneAndUpdate(
+      { _id: buddyReq.toRideId, status: "active", isDeleted: false },
+      { $set: { status: "matched", matchedWith: buddyReq.fromRideId } },
+      { new: true },
+    );
+
+    if (!lockedToRide) {
+      // Roll back the fromRide lock — this accept can't complete
+      await RideRequest.findByIdAndUpdate(buddyReq.fromRideId, {
+        status: "active",
+        matchedWith: null,
+      });
+      buddyReq.status = "rejected";
+      await buddyReq.save();
+      return res
+        .status(409)
+        .json({ message: "Your ride is no longer available" });
+    }
+
+    // Both rides locked — confirm the buddy request
     buddyReq.status = "accepted";
     await buddyReq.save();
 
-    // Mark both rides as matched and link them to each other
-    await RideRequest.findByIdAndUpdate(buddyReq.fromRideId, {
-      status: "matched",
-      matchedWith: buddyReq.toRideId,
-    });
-
-    await RideRequest.findByIdAndUpdate(buddyReq.toRideId, {
-      status: "matched",
-      matchedWith: buddyReq.fromRideId,
-    });
+    // Cancel all other pending buddy requests involving either ride
+    // (any direction — requests they sent or received)
+    await BuddyRequest.updateMany(
+      {
+        _id: { $ne: buddyReq._id },
+        status: "pending",
+        $or: [
+          { fromRideId: { $in: [buddyReq.fromRideId, buddyReq.toRideId] } },
+          { toRideId: { $in: [buddyReq.fromRideId, buddyReq.toRideId] } },
+        ],
+      },
+      { $set: { status: "rejected" } },
+    );
 
     res.json({ message: "Buddy request accepted! You're matched 🎉" });
   } catch (error) {

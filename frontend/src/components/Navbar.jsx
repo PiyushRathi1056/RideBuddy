@@ -3,6 +3,7 @@ import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Home, Car, Inbox, LogOut, Menu, X } from "lucide-react";
+import RBLogo from "./RBLogo";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -71,15 +72,17 @@ export default function Navbar() {
 
   if (!auth.currentUser) return (
     <nav className="navbar">
-      <span className="navbar-brand">RideBuddy</span>
+      <span className="navbar-brand" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <RBLogo size={30} /> RideBuddy
+      </span>
     </nav>
   );
 
   return (
     <>
       <nav className="navbar">
-        <span className="navbar-brand" style={{ cursor: "pointer" }} onClick={() => navigate("/dashboard")}>
-          RideBuddy
+        <span className="navbar-brand" style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }} onClick={() => navigate("/dashboard")}>
+          <RBLogo size={30} /> RideBuddy
         </span>
 
         {/* Desktop links */}

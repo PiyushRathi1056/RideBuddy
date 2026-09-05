@@ -109,7 +109,6 @@ export default function Dashboard() {
                         Your Buddy
                       </p>
                       <p><strong>{ride.matchedWith.name}</strong></p>
-                      <p style={{ color: "var(--gray)", fontSize: "0.85rem" }}>{ride.matchedWith.email}</p>
                       <p style={{ color: "var(--gray)", fontSize: "0.85rem" }}>
                         Their time: {new Date(ride.matchedWith.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </p>

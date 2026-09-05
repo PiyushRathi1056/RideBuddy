@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from "react";
 
 const LOCATIONS = [
   "MAHE Campus",
-  "Airport T1",
-  "Airport T2",
+  "BLR Airport T1",
+  "BLR Airport T2",
   "KSR Railway Station(SBC)",
   "Yesvantpur Railway Station(YPR)",
   "Majestic Bus Stand",

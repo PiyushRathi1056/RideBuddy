@@ -198,7 +198,6 @@ export default function Requestride() {
               {ride.status === "matched" && ride.matchedWith && (
                 <div className="buddy-box">
                   <p><strong>Buddy:</strong> {ride.matchedWith.name}</p>
-                  <p><strong>Email:</strong> {ride.matchedWith.email}</p>
                   <p><strong>Their time:</strong>{" "}
                     {new Date(ride.matchedWith.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </p>

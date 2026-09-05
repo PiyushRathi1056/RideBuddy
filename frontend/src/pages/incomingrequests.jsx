@@ -84,7 +84,6 @@ export default function Incomingrequests() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.6rem" }}>
                 <div>
                   <p style={{ fontWeight: 600 }}>{req.fromRideId?.name}</p>
-                  <p style={{ color: "var(--gray)", fontSize: "0.85rem" }}>{req.fromRideId?.email}</p>
                 </div>
                 <span className="tag tag-pending">Pending</span>
               </div>

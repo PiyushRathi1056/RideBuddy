@@ -1,5 +1,6 @@
 const express = require("express");
 const RideRequest = require("../models/RidesRequest");
+const BuddyRequest = require("../models/BuddyRequest");
 const verifyFirebaseToken = require("../middleware/auth");
 
 const router = express.Router();
@@ -77,7 +78,7 @@ router.get("/my", verifyFirebaseToken, async (req, res) => {
       isDeleted: false,
       status: { $ne: "cancelled" },
     })
-      .populate("matchedWith", "name email from to departureTime")
+      .populate("matchedWith", "name from to departureTime")
       .sort({ createdAt: -1 });
 
     res.json(rides);
@@ -117,7 +118,7 @@ router.delete("/:id", verifyFirebaseToken, async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
-    // 🤝 If this ride was matched, unlink the other ride
+    // 🤝 If this ride was matched, free up the buddy's ride
     if (ride.status === "matched" && ride.matchedWith) {
       await RideRequest.findByIdAndUpdate(ride.matchedWith, {
         status: "active",
@@ -129,8 +130,16 @@ router.delete("/:id", verifyFirebaseToken, async (req, res) => {
     ride.isDeleted = true;
     ride.deletedAt = new Date();
     ride.status = "cancelled";
-
     await ride.save();
+
+    // ❌ Cancel all pending buddy requests involving this ride (sent or received)
+    await BuddyRequest.updateMany(
+      {
+        status: "pending",
+        $or: [{ fromRideId: ride._id }, { toRideId: ride._id }],
+      },
+      { $set: { status: "rejected" } },
+    );
 
     res.json({ message: "Ride deleted successfully" });
   } catch (error) {

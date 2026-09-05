@@ -97,7 +97,6 @@ export default function Matches() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
                 <div>
                   <p style={{ fontWeight: 600 }}>{match.name}</p>
-                  <p style={{ color: "var(--gray)", fontSize: "0.85rem" }}>{match.email}</p>
                 </div>
                 <p style={{ color: "var(--gray)", fontSize: "0.85rem", textAlign: "right" }}>
                   {new Date(match.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

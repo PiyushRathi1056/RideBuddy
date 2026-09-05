@@ -1,29 +1,42 @@
 import { useState, useEffect } from "react";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
 import { auth } from "../firebase";
 import { Link, useNavigate } from "react-router-dom";
+import RBLogo from "../components/RBLogo";
 
 export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => { document.title = "RideBuddy — Create Account"; }, []);
+  useEffect(() => {
+    document.title = "RideBuddy — Create Account";
+  }, []);
 
   const handleSignup = async (e) => {
     e.preventDefault();
+    if (!agreedToTerms) {
+      setError(
+        "Please accept the Terms & Conditions and Privacy Policy to continue.",
+      );
+      return;
+    }
     setError("");
     setLoading(true);
 
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(auth.currentUser, { displayName: name });
-      navigate("/dashboard");
+      await sendEmailVerification(auth.currentUser);
+      navigate("/verify-email");
     } catch (err) {
-      setError(err.message.replace("Firebase: ", "").replace(/ \(auth\/.*\)/, ""));
+      setError(
+        err.message.replace("Firebase: ", "").replace(/ \(auth\/.*\)/, ""),
+      );
     } finally {
       setLoading(false);
     }
@@ -32,10 +45,21 @@ export default function Signup() {
   return (
     <div className="auth-wrapper">
       <div className="auth-card fade-up">
-        <p className="brand">RIDEBUDDY</p>
+        <p className="brand"><RBLogo size={28} style={{ verticalAlign: "middle", marginRight: "0.4rem" }} />RIDEBUDDY</p>
         <h2>Create account</h2>
 
-        {error && <p style={{ color: "var(--red)", fontSize: "0.88rem", marginBottom: "1rem", textAlign: "center" }}>{error}</p>}
+        {error && (
+          <p
+            style={{
+              color: "var(--red)",
+              fontSize: "0.88rem",
+              marginBottom: "1rem",
+              textAlign: "center",
+            }}
+          >
+            {error}
+          </p>
+        )}
 
         <form onSubmit={handleSignup}>
           <div className="form-group">
@@ -71,13 +95,36 @@ export default function Signup() {
             />
           </div>
 
-          <button type="submit" className="btn-primary" style={{ width: "100%", padding: "0.7em", marginTop: "0.5rem" }} disabled={loading}>
+          <label className="terms-checkbox">
+            <input
+              type="checkbox"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+            />
+            <span>
+              I agree to the{" "}
+              <Link to="/terms" target="_blank" rel="noopener noreferrer">
+                Terms &amp; Conditions
+              </Link>{" "}
+              and{" "}
+              <Link to="/privacy" target="_blank" rel="noopener noreferrer">
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
+
+          <button
+            type="submit"
+            className="btn-primary"
+            style={{ width: "100%", padding: "0.7em", marginTop: "0.75rem" }}
+            disabled={loading || !agreedToTerms}
+          >
             {loading ? "Creating account..." : "Create Account"}
           </button>
         </form>
 
         <p className="auth-footer">
-          Already have an account? <Link to="/">Sign in</Link>
+          Already have an account? <Link to="/login">Sign in</Link>
         </p>
       </div>
     </div>

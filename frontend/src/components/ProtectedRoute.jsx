@@ -10,16 +10,19 @@ export default function ProtectedRoute({ children }) {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
-
     return () => unsubscribe();
   }, []);
 
   if (user === undefined) {
-    return <p>Loading...</p>; // wait for Firebase
+    return <p>Loading...</p>;
   }
 
   if (!user) {
     return <Navigate to="/" />;
+  }
+
+  if (!user.emailVerified) {
+    return <Navigate to="/verify-email" />;
   }
 
   return children;
